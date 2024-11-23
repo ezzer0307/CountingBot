@@ -1,13 +1,14 @@
-# Counting Bot 🤖
-Counting Bot is a user-friendly Discord bot designed to bring fun and structure to counting channels in your server! Whether you're managing a dedicated counting channel or just want a simple and interactive way to count with your community, this bot makes it easy.
+# Ezzer's Counting Bot 🤖
+Ezzer's Counting Bot is a user-friendly Discord bot designed to bring fun and structure to counting channels in your server! Whether you're managing a dedicated counting channel or just want a simple and interactive way to count with your community, this bot makes it easy.
 # 📑 Setup
 1. Place `bot.py` into a folder. **DO NOT PUT IN DESKTOP OR DOWNLOADS. PUT IT IN DOCUMENTS. THIS IS IMPORTANT**
 2. Run the file
 3. You will see `config.json` created
 4. Place your token at `line 6`
-5. Use /setchannel and set your counting channel
-6. Use /setcount to set your current count
-7. Use /modules and discover a list of modules
+5. Use /setnickname to set your bot's nickname
+6. Use /setchannel and set your counting channel
+7. Use /setcount to set your current count
+8. Use /modules and discover a list of modules
 # ✨ Features
 - Automatic Counting Validation: Ensures that users count sequentially without errors.
 - Custom Counting Channel: Use the /setchannel command to designate your preferred counting channel.
