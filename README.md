@@ -1,14 +1,19 @@
 # Ezzer's Counting Bot 🤖
 Ezzer's Counting Bot is a user-friendly Discord bot designed to bring fun and structure to counting channels in your server! Whether you're managing a dedicated counting channel or just want a simple and interactive way to count with your community, this bot makes it easy.
 # 📑 Setup
-1. Place bot.py into a folder. **DO NOT PUT IN DESKTOP OR DOWNLOADS. PUT IT IN DOCUMENTS. THIS IS IMPORTANT**
-2. Run bot.py
-3. You will see `config.json` created
-4. Place your token at `line 6`
-5. Use /setnickname to set your bot's nickname
-6. Use /setchannel and set your counting channel
-7. Use /setcount to set your current count
-8. Use /modules and discover a list of modules
+1. Press `WIN + R` and type `powershell`
+2. In your powershell run `pip install discord.py`
+3.  Place `bot.py` into a folder. **DO NOT PUT IN DESKTOP OR DOWNLOADS. PUT IT IN DOCUMENTS. THIS IS IMPORTANT**
+4. Run `bot.py`
+5. You will see `config.json` created, place your token at the first line.
+6. Go to https://discord.developers
+7. Create a new application
+8. Go to OAuth2 Section and install the bot to your server
+9. Go to bot section and reset your token. And copy it
+10. Make sure your token is surrounded by duble quotation marks, if not the bot won't run
+11. Use /setnickname to set your bot's nickname
+12. Use /setchannel and set your counting channel
+13. Use /modules and discover a list of modules
 # ✨ Features
 - Automatic Counting Validation: Ensures that users count sequentially without errors.
 - Custom Counting Channel: Use the /setchannel command to designate your preferred counting channel.
