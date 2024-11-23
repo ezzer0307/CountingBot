@@ -25,4 +25,4 @@ Ezzer's Counting Bot is a user-friendly Discord bot designed to bring fun and st
 # 💡 Why Choose Counting Bot?
 Ezzer's Counting Bot is perfect for fostering engagement in your Discord community while maintaining simplicity and ease of use. With minimal setup, clear instructions, and error-proof mechanics, it's ideal for servers of any size.
 # 📫 Donate Us!
-Support us by donating us on [Patroen](https://www.patreon.com/ezzer0307)
+Support us by donating us on [Patreon](https://www.patreon.com/ezzer0307)
