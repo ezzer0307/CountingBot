@@ -225,6 +225,7 @@ async def on_ready():
         print(f"Error syncing commands: {e}")
 
     print(f"Bot is ready. Logged in as {bot.user}")
+    print("============================")
     for guild in bot.guilds:
         if config["current_count"] is not None:
             await update_bot_nickname(guild, config["current_count"] + 1)
