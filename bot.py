@@ -15,15 +15,16 @@ config = {
     "counting_channel_id": None,
     "correct_counter_role_id": None,
     "last_counter_id": None,
-    "bot_nickname": "Counting",
-    "countingrole": "True",
+    "bot_nickname": "Ezzer's Counting",
+    "countingrole": "False",
     "spam": "False",
     "embed": "False",
     "nodelete": "False",
     "reposting": "False",
     "webhook": "False",
     "dm": "False",
-    "updatenickname": "True"
+    "updatenickname": "False",
+    "numberformat": "False"
 }
 
 if not os.path.isfile(CONFIG_FILE):
@@ -55,7 +56,10 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Function to format numbers with commas
 def format_number(number):
-    return f"{number:,}".replace(",", ",")
+    if config["numberformat"].lower() == "true":
+        return f"{number:,}".replace(",", ",")
+    else:
+        return f"{number:,}".replace(",", "")
 
 def emoji(status):
     return "🔘" if status.lower() == "true" else "⚫"
@@ -72,7 +76,8 @@ def get_menu():
             f"{emoji(config['webhook'])} **Webhook** - Repost messages using a webhook.\n"
             f"{emoji(config['dm'])} **DM** - DM the user if they counted incorrectly or counted multiple times.\n"
             f"{emoji(config['updatenickname'])} **Update Nickname** - Update the bot's nickname with the next count\n"
-            f"{emoji(config['countingrole'])} **Counting Role** - Apply a role to the correct counters"
+            f"{emoji(config['countingrole'])} **Counting Role** - Apply a role to the correct counters\n"
+            f"{emoji(config['numberformat'])} **Number Format** - Apply comas when reposting, webhooks or embed is enabled. If nabled, 1234 will be formatted to 1,234\n"
             )
     return menu
 
@@ -177,6 +182,7 @@ class ModulesView(View):
                 discord.SelectOption(label="DM", description="DM the user if they counted incorrectly or counted multiple times."),
                 discord.SelectOption(label="UpdateNickname", description="Update the bot's nickname with the next count"),
                 discord.SelectOption(label="CountingRole", description="Apply a counting role to teh correct counters"),
+                discord.SelectOption(label="NumberFormat", description="Apply comas when reposting, webhooks or embed is enabled. If nabled, 1234 will be formatted to 1,234")
             ],
             custom_id="modules_dropdown"
         ))
@@ -288,6 +294,25 @@ async def on_message(message):
         await bot.process_commands(message)
 
 @bot.event
+async def on_message_delete(message):
+    # Ensure the deletion is from the counting channel
+    if config["counting_channel_id"] and message.channel.id == config["counting_channel_id"]:
+        # Check if the deleted message matches the last valid count
+        current_count = config["current_count"]
+        formatted_number = format_number(current_count)
+
+        if message.content in {str(current_count), formatted_number}:
+            # Notify the channel about the deletion
+            await message.channel.send(
+                f"<@{config["last_counter_id"]}>: {formatted_number}"
+            )
+            # Optional: Prevent further counting by adding a cooldown or reset logic
+            # Uncomment the line below if you'd like to enforce a reset
+            # config["current_count"] -= 1  # Step back the count if needed
+            save_config()
+
+
+@bot.event
 async def on_interaction(interaction: discord.Interaction):
     if "custom_id" not in interaction.data:
         return
@@ -306,7 +331,8 @@ async def on_interaction(interaction: discord.Interaction):
             "webhook": {"enabled": config["webhook"].lower() == "true", "incompatible": ["Embed", "Reposting"], "description": "Repost the message in a webhook", "name": "Webhook"},
             "dm": {"enabled:": config["dm"].lower() == "true", "incompatible": ["Nodelete"], "description": "DM the user if they counted incorrectly or counted multiple times.", "name": "DM"},
             "updatenickname": {"enabled": config["updatenickname"].lower() == "true", "incompatible": [], "description": "Update the bot's nickname with the next count", "name": "Update Nickname"},
-            "countingrole": {"enabled": config["countingrole"].lower() == "true", "incompatible": [], "description": "Apply a role to the correct counters", "name": "Counting Role"}
+            "countingrole": {"enabled": config["countingrole"].lower() == "true", "incompatible": [], "description": "Apply a role to the correct counters", "name": "Counting Role"},
+            "numberformat": {"enabled": config["numberformat"].lower() == "true", "incompatible": [], "description": "Apply comas when reposting, webhooks or embed is enabled. If nabled, 1234 will be formatted to 1,234"}
         }
 
         module_info = modules_data[selected_module.lower()]
@@ -336,7 +362,8 @@ async def on_interaction(interaction: discord.Interaction):
             "webhook": {"enabled": config["webhook"].lower() == "true", "incompatible": ["Embed", "Reposting"]},
             "dm": {"enabled:": config["dm"].lower() == "true", "incompatible": ["Nodelete"]},
             "updatenickname": {"enabled": config["updatenickname"].lower() == "true", "incompatible": []},
-            "countingrole": {"enabled": config["countingrole"].lower() == "true", "incompatible": []}
+            "countingrole": {"enabled": config["countingrole"].lower() == "true", "incompatible": []},
+            "numberformat": {"enabled": config["numberformat"].lower() == "true", "incompatible": []}
         }
         incompatible = [mod for mod in modules_data[module_name.lower()]["incompatible"] if modules_data[mod.lower()]["enabled"]]
 
