@@ -6,17 +6,15 @@ import json
 import os
 import asyncio
 
-# Line 65: Get menu
-
 CONFIG_FILE = "config.json"
 
 # Default configuration
 config = {
+    "token": None,
     "current_count": 1,
     "counting_channel_id": None,
     "correct_counter_role_id": None,
     "last_counter_id": None,
-    "token": None,
     "bot_nickname": "Counting",
     "countingrole": "True",
     "spam": "False",
@@ -169,7 +167,7 @@ class ModulesView(View):
     def __init__(self):
         super().__init__(timeout=None)
         self.add_item(Select(
-            placeholder="Select a module to view details...",
+            placeholder="Configure modules...",
             options=[
                 discord.SelectOption(label="Embed", description="Repost messages in an embed."),
                 discord.SelectOption(label="Nodelete", description="Don't delete incorrect counts."),
@@ -178,7 +176,7 @@ class ModulesView(View):
                 discord.SelectOption(label="Webhook", description="Repost messages using a webhook."),
                 discord.SelectOption(label="DM", description="DM the user if they counted incorrectly or counted multiple times."),
                 discord.SelectOption(label="UpdateNickname", description="Update the bot's nickname with the next count"),
-                discord.SelectOption(label="CountingRole", description="Apply a counting role to the correct counters"),
+                discord.SelectOption(label="CountingRole", description="Apply a counting role to teh correct counters"),
             ],
             custom_id="modules_dropdown"
         ))
@@ -262,15 +260,11 @@ async def on_message(message):
                     avatar_url=message.author.avatar.url if message.author.avatar else None,
                 )
             elif config["reposting"].lower() == "true":
-                await message.delete()
-                counting_channel = bot.get_channel(config["counting_channel_id"])
-                await counting_channel.send(f"<@{message.author.id}>: {formatted_number}")
+                await message.channel.send(f"<@{message.author.id}>: {formatted_number}")
 
             elif config["embed"].lower() == "true":
-                await message.delete()
-                counting_channel = bot.get_channel(config["counting_channel_id"])
                 embed = discord.Embed(description=f"<@{message.author.id}>: {formatted_number}")
-                await counting_channel.send(embed=embed)
+                await message.channel.send(embed=embed)
 
             if config["countingrole"].lower() == "true": # Check if counting role is enabled
                 if config["correct_counter_role_id"]:
@@ -289,7 +283,7 @@ async def on_message(message):
         elif config["nodelete"].lower() == "false":
             await message.delete()
             if config["dm"].lower() == "true":
-                await message.author.send(f"That was not the correct number! The next count is **{formatted_number}**.")
+                await message.author.send(f"That was not the correct number! The next count is {formatted_number}")
     else:
         await bot.process_commands(message)
 
@@ -310,7 +304,7 @@ async def on_interaction(interaction: discord.Interaction):
             "reposting": {"enabled": config["reposting"].lower() == "true", "incompatible": ["Embed", "Webhook"], "description": "Repost the message", "name": "Repost"},
             "spam": {"enabled": config["spam"].lower() == "true", "incompatible": [], "description": "Allow people to count multiple times in a row.", "name": "Spam"},
             "webhook": {"enabled": config["webhook"].lower() == "true", "incompatible": ["Embed", "Reposting"], "description": "Repost the message in a webhook", "name": "Webhook"},
-            "dm": {"enabled": config["dm"].lower() == "true", "incompatible": ["nodelete"], "description": "DM the user if they counted incorrectly or counted multiple times.", "name": "DM"},
+            "dm": {"enabled:": config["dm"].lower() == "true", "incompatible": ["Nodelete"], "description": "DM the user if they counted incorrectly or counted multiple times.", "name": "DM"},
             "updatenickname": {"enabled": config["updatenickname"].lower() == "true", "incompatible": [], "description": "Update the bot's nickname with the next count", "name": "Update Nickname"},
             "countingrole": {"enabled": config["countingrole"].lower() == "true", "incompatible": [], "description": "Apply a role to the correct counters", "name": "Counting Role"}
         }
