@@ -333,7 +333,7 @@ async def on_interaction(interaction: discord.Interaction):
             "dm": {"enabled:": config["dm"].lower() == "true", "incompatible": ["Nodelete"], "description": "DM the user if they counted incorrectly or counted multiple times.", "name": "DM"},
             "updatenickname": {"enabled": config["updatenickname"].lower() == "true", "incompatible": [], "description": "Update the bot's nickname with the next count", "name": "Update Nickname"},
             "countingrole": {"enabled": config["countingrole"].lower() == "true", "incompatible": [], "description": "Apply a role to the correct counters", "name": "Counting Role"},
-            "numberformat": {"enabled": config["numberformat"].lower() == "true", "incompatible": [], "description": "Apply comas when reposting, webhooks or embed is enabled. If nabled, 1234 will be formatted to 1,234"}
+            "numberformat": {"enabled": config["numberformat"].lower() == "true", "incompatible": [], "description": "Apply comas when reposting, webhooks or embed is enabled. If enabled, 1234 will be formatted to 1,234", "name": "Number Format"}
         }
 
         module_info = modules_data[selected_module.lower()]
