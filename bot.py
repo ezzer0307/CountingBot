@@ -182,7 +182,7 @@ class ModulesView(View):
                 discord.SelectOption(label="DM", description="DM the user if they counted incorrectly or counted multiple times."),
                 discord.SelectOption(label="UpdateNickname", description="Update the bot's nickname with the next count"),
                 discord.SelectOption(label="CountingRole", description="Apply a counting role to teh correct counters"),
-                discord.SelectOption(label="NumberFormat", description="Apply comas when reposting, webhooks or embed is enabled. If nabled, 1234 will be formatted to 1,234")
+                discord.SelectOption(label="NumberFormat", description="Apply comas when reposting, webhooks or embed is enabled. If enabled, 1234 will be formatted to 1,234")
             ],
             custom_id="modules_dropdown"
         ))
@@ -204,16 +204,19 @@ class ModuleDetailsView(View):
 
 # Function to update the bot's nickname in the guild
 async def update_bot_nickname(guild, next_count):
+    bot_member = guild.get_member(bot.user.id)
     if config["updatenickname"].lower() == "true":
         try:
-            bot_member = guild.get_member(bot.user.id)
-            if bot_member:
-                new_nickname = f"[{next_count}] {config["bot_nickname"]}"
-                await bot_member.edit(nick=new_nickname)
-        except discord.Forbidden:
-            print("Bot lacks permissions to change its nickname.")
-        except discord.HTTPException as e:
-            print(f"Failed to update bot nickname: {e}")
+            new_nickname = f"[{next_count}] {config["bot_nickname"]}"
+    else:
+        try:
+            new_nickname = f"[{next_count}] {config["bot_nickname"]}"
+    if bot_member:
+        await bot_member.edit(nick=new_nickname)
+    except discord.Forbidden:
+      print("Bot lacks permissions to change its nickname.")
+    except discord.HTTPException as e:
+      print(f"Failed to update bot nickname: {e}")
 
 @bot.event
 async def on_ready():
