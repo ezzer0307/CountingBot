@@ -5,6 +5,10 @@ from discord.ui import View, Select, Button
 import json
 import os
 import asyncio
+import aiohttp
+import sys
+import time
+import threading
 
 CONFIG_FILE = "config.json"
 
@@ -33,6 +37,7 @@ if not os.path.isfile(CONFIG_FILE):
         json.dump(config, file, indent=4)  # Write JSON with indentation
     print(f"{CONFIG_FILE} created.")
 
+
 # Load configuration
 def load_config():
     global config
@@ -40,10 +45,12 @@ def load_config():
         with open(CONFIG_FILE, "r") as file:
             config.update(json.load(file))
 
+
 # Save configuration
 def save_config():
     with open(CONFIG_FILE, "w") as file:
         json.dump(config, file, indent=4)
+
 
 # Initialize configuration
 load_config()
@@ -51,35 +58,55 @@ load_config()
 # Intents and bot setup
 intents = discord.Intents.default()
 intents.message_content = True
+intents.messages = True
 intents.members = True
+intents.guilds = True
 bot = commands.Bot(command_prefix="!", intents=intents)
+
 
 # Function to format numbers with commas
 def format_number(number):
-    if config["numberformat"].lower() == "true":
-        return f"{number:,}".replace(",", ",")
-    else:
-        return f"{number:,}".replace(",", "")
+    return f"{number:,}".replace(",", ",") if config["numberformat"].lower() == "true" else f"{number:,}".replace(",",
+                                                                                                                  "")
+
 
 def emoji(status):
     return "🔘" if status.lower() == "true" else "⚫"
 
+
 def replaceWord(value, old, new):
-   return value.replace(old, new)
+    return value.replace(old, new)
+
 
 def get_menu():
-    menu = ("**Available Modules:**\n"
-            f"{emoji(config['embed'])} **Embed** - Repost messages in an embed.\n"
-            f"{emoji(config['nodelete'])} **Nodelete** - Don't delete incorrect counts.\n"
-            f"{emoji(config['reposting'])} **Reposting** - Repost the message.\n"
-            f"{emoji(config['spam'])} **Spam** - Allow multiple counts in a row.\n"
-            f"{emoji(config['webhook'])} **Webhook** - Repost messages using a webhook.\n"
-            f"{emoji(config['dm'])} **DM** - DM the user if they counted incorrectly or counted multiple times.\n"
-            f"{emoji(config['updatenickname'])} **Update Nickname** - Update the bot's nickname with the next count\n"
-            f"{emoji(config['countingrole'])} **Counting Role** - Apply a role to the correct counters\n"
-            f"{emoji(config['numberformat'])} **Number Format** - Apply comas when reposting, webhooks or embed is enabled. If nabled, 1234 will be formatted to 1,234\n"
-            )
+    MODULES = {
+        "embed": "Repost messages in an embed.",
+        "nodelete": "Don't delete incorrect counts.",
+        "reposting": "Repost the message.",
+        "spam": "Allow multiple counts in a row.",
+        "webhook": "Repost messages using a webhook.",
+        "dm": "DM users if they count incorrectly or multiple times.",
+        "updatenickname": "Update the bot's nickname with the next count.",
+        "countingrole": "Apply a role to the correct counters.",
+        "numberformat": "Format numbers with commas (e.g., 1234 → 1,234).",
+    }
+    menu = "**Available Modules:**\n"
+    for module, description in MODULES.items():
+        menu += f"{emoji(config[module])} **{module.capitalize()}** - {description}\n"
     return menu
+
+def loading_screen(full_character, empty_character, loading_bar, delay):
+    current_percentage = 0
+    current_track = 0
+    full = str(full_character) or "▰"
+    empty = str(empty_character) or "▱"
+    for i in range(loading_bar):
+        time.sleep(delay)
+        current_track += 1
+        current_percentage += 100 / loading_bar
+        current_text = f"{current_track * full_character}{(loading_bar - current_track) * empty_character} {str(current_percentage).replace(".0", "")}%"
+        sys.stdout.write("\r" + current_text)
+        sys.stdout.flush()
 
 class ModuleMenu(View):
     def __init__(self):
@@ -168,24 +195,33 @@ class GoBackButton(Button):
     async def callback(self, interaction: discord.Interaction):
         await ModuleMenu().send_status(interaction)
 
+
 class ModulesView(View):
     def __init__(self):
         super().__init__(timeout=None)
+        options = [
+            discord.SelectOption(
+                label=module.capitalize(),
+                description=description[:100]  # Truncate description if necessary
+            )
+            for module, description in {
+                "Embed": "Repost messages in an embed.",
+                "Nodelete": "Don't delete incorrect counts.",
+                "Reposting": "Repost the message.",
+                "Spam": "Allow multiple counts in a row.",
+                "Webhook": "Repost messages using a webhook.",
+                "DM": "DM users if they count incorrectly or multiple times.",
+                "Update Nickname": "Update the bot's nickname with the next count.",
+                "Counting Role": "Apply a role to the correct counters.",
+                "Number Format": "Format numbers with commas (e.g., 1234 → 1,234)."
+            }.items()
+        ]
         self.add_item(Select(
-            placeholder="Configure modules...",
-            options=[
-                discord.SelectOption(label="Embed", description="Repost messages in an embed."),
-                discord.SelectOption(label="Nodelete", description="Don't delete incorrect counts."),
-                discord.SelectOption(label="Reposting", description="Repost the message."),
-                discord.SelectOption(label="Spam", description="Allow multiple counts in a row."),
-                discord.SelectOption(label="Webhook", description="Repost messages using a webhook."),
-                discord.SelectOption(label="DM", description="DM the user if they counted incorrectly or counted multiple times."),
-                discord.SelectOption(label="UpdateNickname", description="Update the bot's nickname with the next count"),
-                discord.SelectOption(label="CountingRole", description="Apply a counting role to teh correct counters"),
-                discord.SelectOption(label="NumberFormat", description="Apply comas when reposting, webhooks or embed is enabled. If enabled, 1234 will be formatted to 1,234")
-            ],
+            placeholder="Choose a module to configure...",
+            options=options,
             custom_id="modules_dropdown"
         ))
+
 
 class ModuleDetailsView(View):
     def __init__(self, module_name, is_enabled, incompatible_modules):
@@ -204,51 +240,58 @@ class ModuleDetailsView(View):
 
 # Function to update the bot's nickname in the guild
 async def update_bot_nickname(guild, next_count):
-    bot_member = guild.get_member(bot.user.id)
     if config["updatenickname"].lower() == "true":
         try:
-            new_nickname = f"[{next_count}] {config["bot_nickname"]}"
-    else:
-        try:
-            new_nickname = f"[{next_count}] {config["bot_nickname"]}"
-    if bot_member:
-        await bot_member.edit(nick=new_nickname)
-    except discord.Forbidden:
-      print("Bot lacks permissions to change its nickname.")
-    except discord.HTTPException as e:
-      print(f"Failed to update bot nickname: {e}")
+            bot_member = guild.get_member(bot.user.id)
+            if bot_member:
+                new_nickname = f"[{next_count}] {config["bot_nickname"]}" if config[
+                    "counting_channel_id"] else f"[NO CHANNEL] {config["bot_nickname"]}"
+                await bot_member.edit(nick=new_nickname)
+        except discord.Forbidden:
+            print("Bot lacks permissions to change its nickname.")
+        except discord.HTTPException as e:
+            print(f"Failed to update bot nickname: {e}")
+
 
 @bot.event
 async def on_ready():
     try:
         print("Syncing commands...")
-        await bot.tree.sync()
-        print("Commands synced!")
+        synced = await bot.tree.sync()
+        loading_screen("▰", "▱", 25, 0.1)
+        print(f"\n{len(synced)} commands synced!")
     except Exception as e:
         print(f"Error syncing commands: {e}")
-
     print(f"Bot is ready. Logged in as {bot.user}")
-    print("============================")
     for guild in bot.guilds:
         if config["current_count"] is not None:
             await update_bot_nickname(guild, config["current_count"] + 1)
+
 
 @bot.event
 async def on_message(message):
     if message.author.bot:
         return
 
+    if config["counting_channel_id"]:
+        pass
+    else:
+        for guild in bot.guilds:
+            await update_bot_nickname(guild, config["current_count"] + 1)
+
     if config["counting_channel_id"] and message.channel.id == config["counting_channel_id"]:
-        if config["spam"].lower() == "false": # Prevent double counting if enabled
+        if config["spam"].lower() == "false":  # Prevent double counting if enabled
             if message.author.id == config["last_counter_id"]:
                 await message.delete()
                 if config["dm"].lower() == "true":
-                    await message.author.send(f"You have already counted in <#{config["counting_channel_id"]}>! Wait for someone else to count before you count again..")
+                    await message.author.send(
+                        f"You have already counted in <#{config["counting_channel_id"]}>! Wait for someone else to count before you count again..")
                 return
 
         current_count = config["current_count"]
         next_count = current_count + 1
         formatted_number = format_number(next_count)
+        repost_message = formatted_number if config['numberformat'].lower() == "true" else next_count
         if message.content in {str(next_count), formatted_number}:
             if config["webhook"].lower() == "true":
                 await message.delete()
@@ -265,18 +308,20 @@ async def on_message(message):
                     webhook = await message.channel.create_webhook(name="CountingBot")
 
                 await webhook.send(
-                    formatted_number,
+                    repost_message,
                     username=message.author.display_name,
                     avatar_url=message.author.avatar.url if message.author.avatar else None,
                 )
             elif config["reposting"].lower() == "true":
-                await message.channel.send(f"<@{message.author.id}>: {formatted_number}")
+                await message.delete()
+                await message.channel.send(f"<@{message.author.id}>: {repost_message}")
 
             elif config["embed"].lower() == "true":
-                embed = discord.Embed(description=f"<@{message.author.id}>: {formatted_number}")
+                await message.delete()
+                embed = discord.Embed(description=f"<@{message.author.id}>: {repost_message}")
                 await message.channel.send(embed=embed)
 
-            if config["countingrole"].lower() == "true": # Check if counting role is enabled
+            if config["countingrole"].lower() == "true":  # Check if counting role is enabled
                 if config["correct_counter_role_id"]:
                     role = message.guild.get_role(config["correct_counter_role_id"])
                     if role:
@@ -293,9 +338,10 @@ async def on_message(message):
         elif config["nodelete"].lower() == "false":
             await message.delete()
             if config["dm"].lower() == "true":
-                await message.author.send(f"That was not the correct number! The next count is {formatted_number}")
+                await message.author.send(f"That was not the correct number! The next count is **{formatted_number}**.")
     else:
         await bot.process_commands(message)
+
 
 @bot.event
 async def on_message_delete(message):
@@ -324,19 +370,30 @@ async def on_interaction(interaction: discord.Interaction):
     custom_id = interaction.data["custom_id"]
 
     if custom_id == "modules_dropdown":
-        selected_module = interaction.data["values"][0]
+        selected_module = replaceWord(interaction.data["values"][0], " ", "")
 
         # Define module data
         modules_data = {
-            "embed": {"enabled": config["embed"].lower() == "true", "incompatible": ["Reposting", "Webhook"], "description": "Repost messages in an embed", "name": "Embed"},
-            "nodelete": {"enabled": config["nodelete"].lower() == "true", "incompatible": ["DM"], "description": "No messages get deleted, even if you fail to count.", "name": "No Delete"},
-            "reposting": {"enabled": config["reposting"].lower() == "true", "incompatible": ["Embed", "Webhook"], "description": "Repost the message", "name": "Repost"},
-            "spam": {"enabled": config["spam"].lower() == "true", "incompatible": [], "description": "Allow people to count multiple times in a row.", "name": "Spam"},
-            "webhook": {"enabled": config["webhook"].lower() == "true", "incompatible": ["Embed", "Reposting"], "description": "Repost the message in a webhook", "name": "Webhook"},
-            "dm": {"enabled:": config["dm"].lower() == "true", "incompatible": ["Nodelete"], "description": "DM the user if they counted incorrectly or counted multiple times.", "name": "DM"},
-            "updatenickname": {"enabled": config["updatenickname"].lower() == "true", "incompatible": [], "description": "Update the bot's nickname with the next count", "name": "Update Nickname"},
-            "countingrole": {"enabled": config["countingrole"].lower() == "true", "incompatible": [], "description": "Apply a role to the correct counters", "name": "Counting Role"},
-            "numberformat": {"enabled": config["numberformat"].lower() == "true", "incompatible": [], "description": "Apply comas when reposting, webhooks or embed is enabled. If enabled, 1234 will be formatted to 1,234", "name": "Number Format"}
+            "embed": {"enabled": config["embed"].lower() == "true", "incompatible": ["Reposting", "Webhook"],
+                      "description": "Repost messages in an embed", "name": "Embed"},
+            "nodelete": {"enabled": config["nodelete"].lower() == "true", "incompatible": ["DM"],
+                         "description": "No messages get deleted, even if you fail to count.", "name": "No Delete"},
+            "reposting": {"enabled": config["reposting"].lower() == "true", "incompatible": ["Embed", "Webhook"],
+                          "description": "Repost the message", "name": "Repost"},
+            "spam": {"enabled": config["spam"].lower() == "true", "incompatible": [],
+                     "description": "Allow people to count multiple times in a row.", "name": "Spam"},
+            "webhook": {"enabled": config["webhook"].lower() == "true", "incompatible": ["Embed", "Reposting"],
+                        "description": "Repost the message in a webhook", "name": "Webhook"},
+            "dm": {"enabled": config["dm"].lower() == "true", "incompatible": ["Nodelete"],
+                   "description": "DM the user if they counted incorrectly or counted multiple times.", "name": "DM"},
+            "updatenickname": {"enabled": config["updatenickname"].lower() == "true", "incompatible": [],
+                               "description": "Update the bot's nickname with the next count",
+                               "name": "Update Nickname"},
+            "countingrole": {"enabled": config["countingrole"].lower() == "true", "incompatible": [],
+                             "description": "Apply a role to the correct counters", "name": "Counting Role"},
+            "numberformat": {"enabled": config["numberformat"].lower() == "true", "incompatible": [],
+                             "description": "Apply comas when reposting, webhooks or embed is enabled. If enabled, 1234 will be formatted to 1,234",
+                             "name": "Number Format"}
         }
 
         module_info = modules_data[selected_module.lower()]
@@ -360,16 +417,17 @@ async def on_interaction(interaction: discord.Interaction):
         # Check incompatible modules
         modules_data = {
             "embed": {"enabled": config["embed"].lower() == "true", "incompatible": ["Reposting", "Webhook"]},
-            "nodelete": {"enabled": config["nodelete"].lower() == "true", "incompatible": []},
+            "nodelete": {"enabled": config["nodelete"].lower() == "true", "incompatible": ["DM"]},
             "reposting": {"enabled": config["reposting"].lower() == "true", "incompatible": ["Embed", "Webhook"]},
             "spam": {"enabled": config["spam"].lower() == "true", "incompatible": []},
             "webhook": {"enabled": config["webhook"].lower() == "true", "incompatible": ["Embed", "Reposting"]},
-            "dm": {"enabled:": config["dm"].lower() == "true", "incompatible": ["Nodelete"]},
+            "dm": {"enabled": config["dm"].lower() == "true", "incompatible": ["Nodelete"]},
             "updatenickname": {"enabled": config["updatenickname"].lower() == "true", "incompatible": []},
             "countingrole": {"enabled": config["countingrole"].lower() == "true", "incompatible": []},
             "numberformat": {"enabled": config["numberformat"].lower() == "true", "incompatible": []}
         }
-        incompatible = [mod for mod in modules_data[module_name.lower()]["incompatible"] if modules_data[mod.lower()]["enabled"]]
+        incompatible = [mod for mod in modules_data[module_name.lower()]["incompatible"] if
+                        modules_data[mod.lower()]["enabled"]]
 
         if incompatible:
             await interaction.response.send_message(
@@ -393,12 +451,14 @@ async def on_interaction(interaction: discord.Interaction):
         )
 
     elif custom_id == "go_back":
-        embed = discord.Embed(description=get_menu())
+        desc = get_menu()
+        embed = discord.Embed(description=desc)
         await interaction.response.edit_message(
             content="",
             embed=embed,
             view=ModulesView(),
         )
+
 
 # Slash command: Set Counting Channel
 @bot.tree.command(name="setchannel", description="Set the counting channel.")
@@ -422,9 +482,13 @@ async def set_channel(interaction: discord.Interaction, channel: discord.TextCha
     save_config()
     temp_current_count = format_number(count)
     temp_next_count = format_number(count + 1)
+    for guild in bot.guilds:
+        await update_bot_nickname(guild, config["current_count"] + 1)
     await interaction.response.send_message(
-        f"Counting channel set to {channel.mention}.\nThe current count is set to {temp_current_count}, the next count is {temp_next_count}.", ephemeral=True
+        f"Counting channel set to {channel.mention}.\nThe current count is set to {temp_current_count}, the next count is {temp_next_count}.",
+        ephemeral=True
     )
+
 
 # Slash command: Set Current Count
 @bot.tree.command(name="setcount", description="Set the current count.")
@@ -440,10 +504,11 @@ async def set_count(interaction: discord.Interaction, count: int):
     config["current_count"] = count
     save_config()
     temp_current_count = format_number(count)
-    temp_next_count = format_number(count+1)
+    temp_next_count = format_number(count + 1)
     await interaction.response.send_message(
         f"Current count set to {temp_current_count}. The next count will be {temp_next_count}.", ephemeral=True
     )
+
 
 # Slash command: Set Correct Counter Role
 @bot.tree.command(name="setrole", description="Set the role for correct counters.")
@@ -470,6 +535,7 @@ async def set_role(interaction: discord.Interaction, role: discord.Role):
         f"Role {role.mention} set for correct counters.", ephemeral=True
     )
 
+
 # Slash command: Help Command
 @bot.tree.command(name="help", description="Gets all the available help commands.")
 async def help(interaction: discord.Interaction):
@@ -485,7 +551,44 @@ async def help(interaction: discord.Interaction):
             f"**Function:** This is where the counting channel is. The bot will only focus on that channel.\n**Current:** <#{config["counting_channel_id"]}>\n\n"
             f"### `>` </setnickname:1309909789668802662> - Sets the bot's nickname\n"
             f"**Function:** This sets the bot's nickname. For example the next count is 1234 the bot will change it's nickname to `[1234] <Name>` (Required: UpdateNickname).\n**Current:** {config["bot_nickname"]}\n\n"
+            f"### `>` "
             "### `>` </modules:1309811694557462571> - Gets a list of available modules"
+        ),
+        colour=discord.Color.dark_embed()
+    )
+    await interaction.response.send_message(
+        embed=embed, ephemeral=True  # Correct usage: embed is passed as a keyword argument
+    )
+
+
+# Slash command: Debug Command
+@bot.tree.command(name="debug", description="Debug your bot")
+@app_commands.checks.has_permissions(administrator=True)
+async def debug(interaction: discord.Interaction):
+    embed = discord.Embed(
+        title="",
+        description=(
+            "# Debug\n"
+            "``` ```\n"
+            "## Modules\n"
+            f"### {emoji(config['embed'])} **Embed**\n"
+            f"### {emoji(config['nodelete'])} **Nodelete**\n"
+            f"### {emoji(config['reposting'])} **Reposting**\n"
+            f"### {emoji(config['spam'])} **Spam**\n"
+            f"### {emoji(config['webhook'])} **Webhook**\n"
+            f"### {emoji(config['dm'])} **DM**\n"
+            f"### {emoji(config['updatenickname'])} **Update Nickname**\n"
+            f"### {emoji(config['countingrole'])} **Counting Role**\n"
+            f"### {emoji(config['numberformat'])} **Number Format**\n"
+            "### ⚫ = Disabled, 🔘 = Enabled\n"
+            "``` ```\n"
+            "## Settings\n"
+            f"### `>` Counting Channel: <#{config["counting_channel_id"]}>\n" if config["counting_channel_id"] else f"### `>` Counting Channel: None\n"
+            f"### `>` Current Count: {config["current_count"]}\n"
+            f"### `>` Counting Role: <@&{config["correct_counter_role_id"]}>\n" if config["correct_counter_role_id"] else f"### `>` Counting Role: None\n"
+            f"### `>` Bot Nickname: **{config["bot_nickname"]}**\n"
+            f"### `>` Last Counter: <@{config["last_counter_id"]}>\n" if config["last_counter_id"] else f"### `>` Last Counter: None\n"
+            "``` ```"
         ),
         colour=discord.Color.dark_embed()
     )
@@ -495,15 +598,18 @@ async def help(interaction: discord.Interaction):
 
 @bot.tree.command(name="modules", description="Configures all of your modules.")
 async def modules(interaction: discord.Interaction):
-    embed = discord.Embed(description=get_menu())
+    embed = discord.Embed(
+        title="Modules Configuration",
+        description=get_menu(),
+        colour=discord.Color.dark_embed()
+    )
     await interaction.response.send_message(
-        content="",
         embed=embed,
         view=ModulesView(),
         ephemeral=True
     )
 
-# Slash command: Set Current Count
+# Slash command: Set Nickname Count
 @bot.tree.command(name="setnickname", description="Set the bot's nickname.")
 @app_commands.checks.has_permissions(administrator=True)
 async def set_nickname(interaction: discord.Interaction, name: str):
@@ -520,10 +626,60 @@ async def set_nickname(interaction: discord.Interaction, name: str):
     )
 
 
+@bot.tree.command(name="setavatar", description="Set the bot's avatar (Attachment or URL)")
+@app_commands.checks.has_permissions(administrator=True)
+async def set_avatar(interaction: discord.Interaction, attachment: discord.Attachment = None, image_url: str = None):
+    if not attachment and not image_url:
+        await interaction.response.send_message(
+            "Please provide either an image attachment or an image url", ephemeral=True
+        )
+        return
+    avatar_bytes = None
+
+    # If an attachment is provided
+    if attachment:
+        if not attachment.content_type or not attachment.content_type.startswith("image"):
+            await interaction.response.send_message(
+                "Please upload a valid image attachment", ephemeral=True
+            )
+            return
+        avatar_bytes = await attachment.read()
+
+    # If an image URL is provided
+    elif image_url:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(image_url) as response:
+                    if response.status == 200 and response.content_type.startswith("image"):
+                        avatar_bytes = await response.read()
+                    else:
+                        await interaction.response.send_message(
+                            "The provided URL is not a valid image.", ephemeral=True
+                        )
+                        return
+        except Exception as e:
+            await interaction.response.send_message(
+                f"Failed to fetch the image from the URL: {e}", ephemeral=True
+            )
+            return
+
+    # Update the bot's avatar
+    try:
+        await bot.user.edit(avatar=avatar_bytes)
+        await interaction.response.send_message(
+            "Bot avatar updated successfully!", ephemeral=True
+        )
+    except Exception as e:
+        await interaction.response.send_message(
+            f"Failed to update avatar: {e}", ephemeral=True
+        )
+
 # Error handling
 @set_channel.error
 @set_count.error
 @set_role.error
+@set_nickname.error
+@set_avatar.error
 async def command_error(interaction: discord.Interaction, error):
     if isinstance(error, app_commands.MissingPermissions):
         await interaction.response.send_message(
@@ -533,6 +689,7 @@ async def command_error(interaction: discord.Interaction, error):
         await interaction.response.send_message(
             "An error occurred while executing the command.", ephemeral=True
         )
+
 
 # Run the bot with the token from config.json
 if config["token"]:
