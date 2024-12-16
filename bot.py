@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-from discord.ui import View, Select, Button
+from discord.ui import View, Select, Button, Modal, TextInput
 import json
 import os
 import asyncio
@@ -28,7 +28,8 @@ config = {
     "webhook": "False",
     "dm": "False",
     "updatenickname": "False",
-    "numberformat": "False"
+    "numberformat": "False",
+    "typing": "False"
 }
 
 if not os.path.isfile(CONFIG_FILE):
@@ -89,24 +90,169 @@ def get_menu():
         "updatenickname": "Update the bot's nickname with the next count.",
         "countingrole": "Apply a role to the correct counters.",
         "numberformat": "Format numbers with commas (e.g., 1234 → 1,234).",
+        "typing": "Make the bot typing in the counting channel when failed to count."
     }
     menu = "**Available Modules:**\n"
     for module, description in MODULES.items():
         menu += f"{emoji(config[module])} **{module.capitalize()}** - {description}\n"
     return menu
 
-def loading_screen(full_character, empty_character, loading_bar, delay):
-    current_percentage = 0
-    current_track = 0
-    full = str(full_character) or "▰"
-    empty = str(empty_character) or "▱"
-    for i in range(loading_bar):
-        time.sleep(delay)
-        current_track += 1
-        current_percentage += 100 / loading_bar
-        current_text = f"{current_track * full_character}{(loading_bar - current_track) * empty_character} {str(current_percentage).replace(".0", "")}%"
-        sys.stdout.write("\r" + current_text)
-        sys.stdout.flush()
+async def typing_with_timeout(channel, timeout=4):
+    """Show typing indicator for a set timeout in the background."""
+    async with channel.typing():  # Starts typing indicator
+        await asyncio.sleep(timeout)  # Keep typing indicator active for the specified duration
+
+
+class SettingsDropdown(Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(label="Set Counting Channel", description="Set the channel for counting."),
+            discord.SelectOption(label="Set Current Count", description="Set the current count value."),
+            discord.SelectOption(label="Set Counting Role", description="Set the role for correct counters."),
+            discord.SelectOption(label="Set Bot Nickname", description="Set the bot's nickname."),
+        ]
+        super().__init__(placeholder="Select a setting to configure...", options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        selection = self.values[0]
+        if selection == "Set Counting Channel":
+            view = SetChannelDropdownView(interaction.guild)
+            await interaction.response.send_message("Select a counting channel:", view=view, ephemeral=True)
+        elif selection == "Set Current Count":
+            modal = SetCountModal()
+            await interaction.response.send_modal(modal)
+        elif selection == "Set Counting Role":
+            view = SetRoleDropdownView(interaction.guild)
+            await interaction.response.send_message("Select a counting role:", view=view, ephemeral=True)
+        elif selection == "Set Bot Nickname":
+            modal = SetNicknameModal()
+            await interaction.response.send_modal(modal)
+        else:
+            await interaction.response.send_message("Invalid selection.", ephemeral=True)
+
+
+class SettingsView(View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(SettingsDropdown())
+
+
+class SetChannelDropdown(Select):
+    def __init__(self, guild):
+        # Fetch text channels and ensure they are valid
+        channels = [channel for channel in guild.text_channels if channel.permissions_for(guild.me).send_messages]
+
+        # Truncate to a maximum of 25 options as required by Discord
+        truncated_channels = channels[:25]
+
+        options = [
+            discord.SelectOption(label=channel.name, value=str(channel.id))
+            for channel in truncated_channels
+        ]
+
+        # Add a fallback option if no valid channels are available
+        if not options:
+            options = [discord.SelectOption(label="No text channels available", value="none", default=True)]
+
+        super().__init__(placeholder="Choose a channel...", options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        if self.values[0] == "none":
+            await interaction.response.send_message(
+                "No valid text channels are available to select.", ephemeral=True
+            )
+            return
+
+        selected_channel_id = int(self.values[0])
+        config["counting_channel_id"] = selected_channel_id
+        save_config()
+
+        selected_channel = interaction.guild.get_channel(selected_channel_id)
+        if selected_channel:
+            await interaction.response.send_message(
+                f"Counting channel set to {selected_channel.mention}.", ephemeral=True
+            )
+        else:
+            await interaction.response.send_message("An error occurred while setting the channel.", ephemeral=True)
+
+class SetChannelDropdownView(View):
+    def __init__(self, guild):
+        super().__init__(timeout=None)
+        self.add_item(SetChannelDropdown(guild))
+
+class SetRoleDropdown(Select):
+    def __init__(self, guild):
+        # Fetch roles and truncate to 25 if necessary
+        roles = guild.roles[:25]  # Limit to 25 roles
+        options = [
+            discord.SelectOption(label=role.name, value=str(role.id))
+            for role in roles
+        ]
+
+        # Add a fallback option if no roles are available
+        if not options:
+            options = [discord.SelectOption(label="No roles available", value="none", default=True)]
+
+        super().__init__(placeholder="Choose a role...", options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        if self.values[0] == "none":
+            await interaction.response.send_message(
+                "No roles are available to select.", ephemeral=True
+            )
+            return
+
+        selected_role_id = int(self.values[0])
+        role = interaction.guild.get_role(selected_role_id)
+        if not role:
+            await interaction.response.send_message("Invalid channel selection.", ephemeral=True)
+            return
+
+        config["correct_counter_role_id"] = selected_role_id
+        save_config()
+        await interaction.response.send_message(
+            f"Counting channel set to {role.mention}.", ephemeral=True
+        )
+
+
+class SetRoleDropdownView(View):
+    def __init__(self, guild):
+        super().__init__(timeout=None)
+        self.add_item(SetRoleDropdown(guild))
+
+
+class SetCountModal(Modal, title="Set Current Count"):
+    count = TextInput(label="Current Count", placeholder="Enter the current count", required=True)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            config["current_count"] = int(self.count.value)
+            save_config()
+
+            await interaction.response.send_message(
+                f"Current count updated to {self.count.value}.", ephemeral=True
+            )
+        except ValueError:
+            await interaction.response.send_message("Invalid input. Please enter a valid number.", ephemeral=True)
+
+
+class SetNicknameModal(Modal, title="Set Bot Nickname"):
+    nickname = TextInput(label="Nickname", placeholder="Enter the new nickname", required=True)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        config["bot_nickname"] = self.nickname.value
+        save_config()
+
+        try:
+            bot_member = interaction.guild.get_member(bot.user.id)
+            if bot_member:
+                for guild in bot.guilds:
+                    update_bot_nickname(guild, config["current_count"] + 1)
+                await interaction.response.send_message(
+                    f"Bot nickname updated to {config['bot_nickname']}.", ephemeral=True
+                )
+        except discord.Forbidden:
+            await interaction.response.send_message("I lack permissions to change my nickname.", ephemeral=True)
 
 class ModuleMenu(View):
     def __init__(self):
@@ -213,7 +359,8 @@ class ModulesView(View):
                 "DM": "DM users if they count incorrectly or multiple times.",
                 "Update Nickname": "Update the bot's nickname with the next count.",
                 "Counting Role": "Apply a role to the correct counters.",
-                "Number Format": "Format numbers with commas (e.g., 1234 → 1,234)."
+                "Number Format": "Format numbers with commas (e.g., 1234 → 1,234).",
+                "Typing": "Make the bot typing in the counting channel when failed to count."
             }.items()
         ]
         self.add_item(Select(
@@ -244,7 +391,8 @@ async def update_bot_nickname(guild, next_count):
         try:
             bot_member = guild.get_member(bot.user.id)
             if bot_member:
-                new_nickname = f"[{next_count}] {config["bot_nickname"]}" if config[
+                formatted_number = format_number(next_count)
+                new_nickname = (f"[{formatted_number if config["numberformat"].lower() == "true" else next_count}] " + config["bot_nickname"]) if config[
                     "counting_channel_id"] else f"[NO CHANNEL] {config["bot_nickname"]}"
                 await bot_member.edit(nick=new_nickname)
         except discord.Forbidden:
@@ -258,7 +406,6 @@ async def on_ready():
     try:
         print("Syncing commands...")
         synced = await bot.tree.sync()
-        loading_screen("▰", "▱", 25, 0.1)
         print(f"\n{len(synced)} commands synced!")
     except Exception as e:
         print(f"Error syncing commands: {e}")
@@ -336,9 +483,12 @@ async def on_message(message):
             # Update bot's nickname with the next count
             await update_bot_nickname(message.guild, config["current_count"] + 1)
         elif config["nodelete"].lower() == "false":
+            if config["typing"].lower() == "true":
+                asyncio.create_task(typing_with_timeout(message.channel, timeout=4))
             await message.delete()
             if config["dm"].lower() == "true":
                 await message.author.send(f"That was not the correct number! The next count is **{formatted_number}**.")
+            await message.channel.trigger_typing()
     else:
         await bot.process_commands(message)
 
@@ -376,7 +526,7 @@ async def on_interaction(interaction: discord.Interaction):
         modules_data = {
             "embed": {"enabled": config["embed"].lower() == "true", "incompatible": ["Reposting", "Webhook"],
                       "description": "Repost messages in an embed", "name": "Embed"},
-            "nodelete": {"enabled": config["nodelete"].lower() == "true", "incompatible": ["DM"],
+            "nodelete": {"enabled": config["nodelete"].lower() == "true", "incompatible": ["DM", "Typing"],
                          "description": "No messages get deleted, even if you fail to count.", "name": "No Delete"},
             "reposting": {"enabled": config["reposting"].lower() == "true", "incompatible": ["Embed", "Webhook"],
                           "description": "Repost the message", "name": "Repost"},
@@ -393,7 +543,10 @@ async def on_interaction(interaction: discord.Interaction):
                              "description": "Apply a role to the correct counters", "name": "Counting Role"},
             "numberformat": {"enabled": config["numberformat"].lower() == "true", "incompatible": [],
                              "description": "Apply comas when reposting, webhooks or embed is enabled. If enabled, 1234 will be formatted to 1,234",
-                             "name": "Number Format"}
+                             "name": "Number Format"},
+            "typing": {"enabled": config["typing"].lower() == "true", "incompatible": ["Nodelete"],
+                       "description": "Make the bot typing in the counting channel when failed to count.",
+                       "name": "Typing"},
         }
 
         module_info = modules_data[selected_module.lower()]
@@ -417,14 +570,15 @@ async def on_interaction(interaction: discord.Interaction):
         # Check incompatible modules
         modules_data = {
             "embed": {"enabled": config["embed"].lower() == "true", "incompatible": ["Reposting", "Webhook"]},
-            "nodelete": {"enabled": config["nodelete"].lower() == "true", "incompatible": ["DM"]},
+            "nodelete": {"enabled": config["nodelete"].lower() == "true", "incompatible": ["DM", "Typing"]},
             "reposting": {"enabled": config["reposting"].lower() == "true", "incompatible": ["Embed", "Webhook"]},
             "spam": {"enabled": config["spam"].lower() == "true", "incompatible": []},
             "webhook": {"enabled": config["webhook"].lower() == "true", "incompatible": ["Embed", "Reposting"]},
             "dm": {"enabled": config["dm"].lower() == "true", "incompatible": ["Nodelete"]},
             "updatenickname": {"enabled": config["updatenickname"].lower() == "true", "incompatible": []},
             "countingrole": {"enabled": config["countingrole"].lower() == "true", "incompatible": []},
-            "numberformat": {"enabled": config["numberformat"].lower() == "true", "incompatible": []}
+            "numberformat": {"enabled": config["numberformat"].lower() == "true", "incompatible": []},
+            "typing": {"enabled": config["typing"].lower() == "true", "incompatible": ["Nodelete"]}
         }
         incompatible = [mod for mod in modules_data[module_name.lower()]["incompatible"] if
                         modules_data[mod.lower()]["enabled"]]
@@ -459,83 +613,6 @@ async def on_interaction(interaction: discord.Interaction):
             view=ModulesView(),
         )
 
-
-# Slash command: Set Counting Channel
-@bot.tree.command(name="setchannel", description="Set the counting channel.")
-@app_commands.checks.has_permissions(administrator=True)
-async def set_channel(interaction: discord.Interaction, channel: discord.TextChannel, count: int):
-    # Ensure it's a text channel
-    if not isinstance(channel, discord.TextChannel):
-        await interaction.response.send_message(
-            "You can only select text channels.", ephemeral=True
-        )
-        return
-
-    if not isinstance(count, int):
-        await interaction.response.send_message(
-            "The count must be an integer value.", ephemeral=True
-        )
-        return
-
-    config["counting_channel_id"] = channel.id
-    config["current_count"] = count
-    save_config()
-    temp_current_count = format_number(count)
-    temp_next_count = format_number(count + 1)
-    for guild in bot.guilds:
-        await update_bot_nickname(guild, config["current_count"] + 1)
-    await interaction.response.send_message(
-        f"Counting channel set to {channel.mention}.\nThe current count is set to {temp_current_count}, the next count is {temp_next_count}.",
-        ephemeral=True
-    )
-
-
-# Slash command: Set Current Count
-@bot.tree.command(name="setcount", description="Set the current count.")
-@app_commands.checks.has_permissions(administrator=True)
-async def set_count(interaction: discord.Interaction, count: int):
-    # Ensure it's an integer
-    if not isinstance(count, int):
-        await interaction.response.send_message(
-            "The count must be an integer value.", ephemeral=True
-        )
-        return
-
-    config["current_count"] = count
-    save_config()
-    temp_current_count = format_number(count)
-    temp_next_count = format_number(count + 1)
-    await interaction.response.send_message(
-        f"Current count set to {temp_current_count}. The next count will be {temp_next_count}.", ephemeral=True
-    )
-
-
-# Slash command: Set Correct Counter Role
-@bot.tree.command(name="setrole", description="Set the role for correct counters.")
-@app_commands.checks.has_permissions(administrator=True)
-async def set_role(interaction: discord.Interaction, role: discord.Role):
-    if config["countingrole"].lower() == "false":
-        await interaction.response.send_message(
-            "The counting role function is disabled. Use </modules:1309811694557462571> to enable it", ephemeral=True
-        )
-        return
-
-    # Check if the bot can manage this role
-    bot_member = interaction.guild.me
-    if bot_member.top_role <= role:
-        await interaction.response.send_message(
-            "I cannot manage roles that are higher or equal to my highest role.", ephemeral=True
-        )
-        return
-
-    config["correct_counter_role_id"] = role.id
-    config["countingrole"] = "True"
-    save_config()
-    await interaction.response.send_message(
-        f"Role {role.mention} set for correct counters.", ephemeral=True
-    )
-
-
 # Slash command: Help Command
 @bot.tree.command(name="help", description="Gets all the available help commands.")
 async def help(interaction: discord.Interaction):
@@ -543,16 +620,10 @@ async def help(interaction: discord.Interaction):
         title="",
         description=(
             "## List of commands\n"
-            "### `>` </setrole:1307527478205485117> - Sets the role to be assigned for the correct counters.\n"
-            f"**Function:** This role will be assigned to the correct counters to prevent spam. So, you can choose whether to set a slowmode or no. Disabling the role from sending message into the counting channel is recommended. (Required: CountingRole)\n**Current:** <@&{config["correct_counter_role_id"]}>\n\n"
-            "### `>` </setcount:1307526834669228073> - Sets the current count.\n"
-            f"**Function:** This is very important. When you set the count, please provide the **last message** in the counting channel\n**Current:** {config["current_count"]}\n\n"
-            "### `>` </setchannel:1307527478205485116> - Sets the current counting channel.\n"
-            f"**Function:** This is where the counting channel is. The bot will only focus on that channel.\n**Current:** <#{config["counting_channel_id"]}>\n\n"
-            f"### `>` </setnickname:1309909789668802662> - Sets the bot's nickname\n"
-            f"**Function:** This sets the bot's nickname. For example the next count is 1234 the bot will change it's nickname to `[1234] <Name>` (Required: UpdateNickname).\n**Current:** {config["bot_nickname"]}\n\n"
-            f"### `>` "
+            "### `>` </debug:1311451017379844116> - Debug your bot"
             "### `>` </modules:1309811694557462571> - Gets a list of available modules"
+            "### `>` </settings:1318221863939211346> - Manage your bot's settings."
+            "### `>` </help:1307533852264239136> - Gets a list of available help commands."
         ),
         colour=discord.Color.dark_embed()
     )
@@ -569,7 +640,7 @@ async def debug(interaction: discord.Interaction):
         title="",
         description=(
             "# Debug\n"
-            "``` ```\n"
+            "\n"
             "## Modules\n"
             f"### {emoji(config['embed'])} **Embed**\n"
             f"### {emoji(config['nodelete'])} **Nodelete**\n"
@@ -580,15 +651,15 @@ async def debug(interaction: discord.Interaction):
             f"### {emoji(config['updatenickname'])} **Update Nickname**\n"
             f"### {emoji(config['countingrole'])} **Counting Role**\n"
             f"### {emoji(config['numberformat'])} **Number Format**\n"
+            f"### {emoji(config['typing'])} **Typing**\n"
             "### ⚫ = Disabled, 🔘 = Enabled\n"
-            "``` ```\n"
+            "\n"
             "## Settings\n"
-            f"### `>` Counting Channel: <#{config["counting_channel_id"]}>\n" if config["counting_channel_id"] else f"### `>` Counting Channel: None\n"
+            "### `>` Counting Channel: " + f"<#{config["counting_channel_id"]}>\n" if config["counting_channel_id"] else "None\n"
             f"### `>` Current Count: {config["current_count"]}\n"
-            f"### `>` Counting Role: <@&{config["correct_counter_role_id"]}>\n" if config["correct_counter_role_id"] else f"### `>` Counting Role: None\n"
+            "### `>` Counting Role: " + f"<@&{config["correct_counter_role_id"]}>\n" if config["correct_counter_role_id"] else "None\n"
             f"### `>` Bot Nickname: **{config["bot_nickname"]}**\n"
-            f"### `>` Last Counter: <@{config["last_counter_id"]}>\n" if config["last_counter_id"] else f"### `>` Last Counter: None\n"
-            "``` ```"
+            f"### `>` Last Counter: " + f"<@{config["last_counter_id"]}>\n" if config["last_counter_id"] else "None\n"
         ),
         colour=discord.Color.dark_embed()
     )
@@ -609,77 +680,13 @@ async def modules(interaction: discord.Interaction):
         ephemeral=True
     )
 
-# Slash command: Set Nickname Count
-@bot.tree.command(name="setnickname", description="Set the bot's nickname.")
+@bot.tree.command(name="settings", description="Manage bot settings.")
 @app_commands.checks.has_permissions(administrator=True)
-async def set_nickname(interaction: discord.Interaction, name: str):
-    if config["updatenickname"].lower() == "false":
-        await interaction.response.send_message(
-            "The `UpdateNickname` function is disabled. Use </modules:1309811694557462571> to enable it", ephemeral=True
-        )
-        return
+async def settings(interaction: discord.Interaction):
+    """Command to open the settings menu."""
+    view = SettingsView()
+    await interaction.response.send_message("Select a setting to configure:", view=view, ephemeral=True)
 
-    config["bot_nickname"] = name
-    save_config()
-    await interaction.response.send_message(
-        f"Bot nickname set to {config["bot_nickname"]}.", ephemeral=True
-    )
-
-
-@bot.tree.command(name="setavatar", description="Set the bot's avatar (Attachment or URL)")
-@app_commands.checks.has_permissions(administrator=True)
-async def set_avatar(interaction: discord.Interaction, attachment: discord.Attachment = None, image_url: str = None):
-    if not attachment and not image_url:
-        await interaction.response.send_message(
-            "Please provide either an image attachment or an image url", ephemeral=True
-        )
-        return
-    avatar_bytes = None
-
-    # If an attachment is provided
-    if attachment:
-        if not attachment.content_type or not attachment.content_type.startswith("image"):
-            await interaction.response.send_message(
-                "Please upload a valid image attachment", ephemeral=True
-            )
-            return
-        avatar_bytes = await attachment.read()
-
-    # If an image URL is provided
-    elif image_url:
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(image_url) as response:
-                    if response.status == 200 and response.content_type.startswith("image"):
-                        avatar_bytes = await response.read()
-                    else:
-                        await interaction.response.send_message(
-                            "The provided URL is not a valid image.", ephemeral=True
-                        )
-                        return
-        except Exception as e:
-            await interaction.response.send_message(
-                f"Failed to fetch the image from the URL: {e}", ephemeral=True
-            )
-            return
-
-    # Update the bot's avatar
-    try:
-        await bot.user.edit(avatar=avatar_bytes)
-        await interaction.response.send_message(
-            "Bot avatar updated successfully!", ephemeral=True
-        )
-    except Exception as e:
-        await interaction.response.send_message(
-            f"Failed to update avatar: {e}", ephemeral=True
-        )
-
-# Error handling
-@set_channel.error
-@set_count.error
-@set_role.error
-@set_nickname.error
-@set_avatar.error
 async def command_error(interaction: discord.Interaction, error):
     if isinstance(error, app_commands.MissingPermissions):
         await interaction.response.send_message(
