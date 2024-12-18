@@ -102,6 +102,121 @@ async def typing_with_timeout(channel, timeout=4):
     async with channel.typing():  # Starts typing indicator
         await asyncio.sleep(timeout)  # Keep typing indicator active for the specified duration
 
+class DashboardDropdown(Select):
+    def __init__(self):
+        options = [
+            discord.SelectOption(label="Modules", description="Configure your bot's modules."),
+            discord.SelectOption(label="Settings", description="Manage your bot's settings."),
+            discord.SelectOption(label="Help", description="Get a list of help commands."),
+            discord.SelectOption(label="Debug", description="Debug your bot."),
+        ]
+        super().__init__(placeholder="Choose an option...", options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        selection = self.values[0]
+
+        if selection == "Modules":
+            await self.show_modules(interaction)
+        elif selection == "Settings":
+            await self.show_settings(interaction)
+        elif selection == "Help":
+            await self.show_help(interaction)
+        elif selection == "Debug":
+            await self.show_debug(interaction)
+        else:
+            await interaction.response.send_message("Invalid selection.", ephemeral=True)
+
+    async def show_modules(self, interaction):
+        embed = discord.Embed(
+            title="Modules Configuration",
+            description=get_menu(),
+            colour=discord.Color.dark_embed()
+        )
+        await interaction.response.send_message(
+            embed=embed,
+            view=ModulesView(),
+            ephemeral=True
+        )
+
+    async def show_settings(self, interaction):
+        view = SettingsView()
+        await interaction.response.send_message("Select a setting to configure:", view=view, ephemeral=True)
+
+    async def command_error(interaction: discord.Interaction, error):
+        if isinstance(error, app_commands.MissingPermissions):
+            await interaction.response.send_message(
+                "You do not have permission to use this command.", ephemeral=True
+            )
+        else:
+            await interaction.response.send_message(
+                "An error occurred while executing the command.", ephemeral=True
+            )
+
+    async def show_help(self, interaction):
+        help_message = (
+            "**Welcome to CountingBot!**\n"
+            "CountingBot is designed to manage counting activities in your server effortlessly.\n\n"
+            "**How to Use the Bot**:\n"
+            "1. Use `/dashboard` to access the bot's control panel.\n"
+            "2. From the dropdown menu, you can:\n"
+            "   - **Modules**: Toggle and configure features like embed reposts or webhook messages.\n"
+            "   - **Settings**: Manage key settings like the counting channel, roles, and current count.\n"
+            "   - **Debug**: Get troubleshooting information to identify and fix issues.\n\n"
+            "**Commands**:\n"
+            "`/dashboard` - Opens the bot's main control panel.\n\n"
+            "**Need Help?**\n"
+            "Visit the source code and documentation here:\n"
+            "https://github.com/ezzer0307/CountingBot\n"
+            "Feel free to explore and contribute!"
+        )
+        embed = discord.Embed(
+            title="",
+            description=help_message,
+            colour=discord.Color.dark_embed()
+        )
+        await interaction.response.send_message(
+            embed=embed, ephemeral=True  # Correct usage: embed is passed as a keyword argument
+        )
+
+    async def show_debug(self, interaction):
+        embed = discord.Embed(
+            title="",
+            description=(
+                "# Debug\n"
+                "\n"
+                "## Modules\n"
+                f"### {emoji(config['embed'])} **Embed**\n"
+                f"### {emoji(config['nodelete'])} **Nodelete**\n"
+                f"### {emoji(config['reposting'])} **Reposting**\n"
+                f"### {emoji(config['spam'])} **Spam**\n"
+                f"### {emoji(config['webhook'])} **Webhook**\n"
+                f"### {emoji(config['dm'])} **DM**\n"
+                f"### {emoji(config['updatenickname'])} **Update Nickname**\n"
+                f"### {emoji(config['countingrole'])} **Counting Role**\n"
+                f"### {emoji(config['numberformat'])} **Number Format**\n"
+                f"### {emoji(config['typing'])} **Typing**\n"
+                "### ⚫ = Disabled, 🔘 = Enabled\n"
+                "\n"
+                "## Settings\n"
+                "### `>` Counting Channel: " + f"<#{config["counting_channel_id"]}>\n" if config[
+                    "counting_channel_id"] else "None\n"
+                                                f"### `>` Current Count: {config["current_count"]}\n"
+                                                "### `>` Counting Role: " + f"<@&{config["correct_counter_role_id"]}>\n" if
+                config["correct_counter_role_id"] else "None\n"
+                                                       f"### `>` Bot Nickname: **{config["bot_nickname"]}**\n"
+                                                       f"### `>` Last Counter: " + f"<@{config["last_counter_id"]}>\n" if
+                config["last_counter_id"] else "None\n"
+            ),
+            colour=discord.Color.dark_embed()
+        )
+        await interaction.response.send_message(
+            embed=embed, ephemeral=True  # Correct usage: embed is passed as a keyword argument
+        )
+
+class DashboardView(View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        self.add_item(DashboardDropdown())
 
 class SettingsDropdown(Select):
     def __init__(self):
@@ -501,16 +616,21 @@ async def on_message_delete(message):
         current_count = config["current_count"]
         formatted_number = format_number(current_count)
 
-        if message.content in {str(current_count), formatted_number}:
+        channel = message.channel.id
+        message_check = await channel.fetch_message(channel.last_message_id)
+        if message_check.content in {str(current_count), formatted_number}:
+            pass
+        else:
+            channel = message.channel.id
+            message = await channel.fetch_message(channel.last_message_id)
             # Notify the channel about the deletion
             await message.channel.send(
-                f"<@{config["last_counter_id"]}>: {formatted_number}"
+                f"<@{config["last_counter_id"]}>: {formatted_number if config["numberformat"].lower() == "true" else current_count}"
             )
             # Optional: Prevent further counting by adding a cooldown or reset logic
             # Uncomment the line below if you'd like to enforce a reset
             # config["current_count"] -= 1  # Step back the count if needed
             save_config()
-
 
 @bot.event
 async def on_interaction(interaction: discord.Interaction):
@@ -613,90 +733,17 @@ async def on_interaction(interaction: discord.Interaction):
             view=ModulesView(),
         )
 
-# Slash command: Help Command
-@bot.tree.command(name="help", description="Gets all the available help commands.")
-async def help(interaction: discord.Interaction):
-    embed = discord.Embed(
-        title="",
-        description=(
-            "## List of commands\n"
-            "### `>` </debug:1311451017379844116> - Debug your bot"
-            "### `>` </modules:1309811694557462571> - Gets a list of available modules"
-            "### `>` </settings:1318221863939211346> - Manage your bot's settings."
-            "### `>` </help:1307533852264239136> - Gets a list of available help commands."
-        ),
-        colour=discord.Color.dark_embed()
-    )
-    await interaction.response.send_message(
-        embed=embed, ephemeral=True  # Correct usage: embed is passed as a keyword argument
-    )
-
-
-# Slash command: Debug Command
-@bot.tree.command(name="debug", description="Debug your bot")
+@bot.tree.command(name="dashboard", description="Access the bot's dashboard to manage settings, modules, and more.")
 @app_commands.checks.has_permissions(administrator=True)
-async def debug(interaction: discord.Interaction):
+async def dashboard(interaction: discord.Interaction):
+    """Unified dashboard command."""
+    view = DashboardView()
     embed = discord.Embed(
-        title="",
-        description=(
-            "# Debug\n"
-            "\n"
-            "## Modules\n"
-            f"### {emoji(config['embed'])} **Embed**\n"
-            f"### {emoji(config['nodelete'])} **Nodelete**\n"
-            f"### {emoji(config['reposting'])} **Reposting**\n"
-            f"### {emoji(config['spam'])} **Spam**\n"
-            f"### {emoji(config['webhook'])} **Webhook**\n"
-            f"### {emoji(config['dm'])} **DM**\n"
-            f"### {emoji(config['updatenickname'])} **Update Nickname**\n"
-            f"### {emoji(config['countingrole'])} **Counting Role**\n"
-            f"### {emoji(config['numberformat'])} **Number Format**\n"
-            f"### {emoji(config['typing'])} **Typing**\n"
-            "### ⚫ = Disabled, 🔘 = Enabled\n"
-            "\n"
-            "## Settings\n"
-            "### `>` Counting Channel: " + f"<#{config["counting_channel_id"]}>\n" if config["counting_channel_id"] else "None\n"
-            f"### `>` Current Count: {config["current_count"]}\n"
-            "### `>` Counting Role: " + f"<@&{config["correct_counter_role_id"]}>\n" if config["correct_counter_role_id"] else "None\n"
-            f"### `>` Bot Nickname: **{config["bot_nickname"]}**\n"
-            f"### `>` Last Counter: " + f"<@{config["last_counter_id"]}>\n" if config["last_counter_id"] else "None\n"
-        ),
+        title="Bot Dashboard",
+        description="Select an option below to configure your bot.",
         colour=discord.Color.dark_embed()
     )
-    await interaction.response.send_message(
-        embed=embed, ephemeral=True  # Correct usage: embed is passed as a keyword argument
-    )
-
-@bot.tree.command(name="modules", description="Configures all of your modules.")
-async def modules(interaction: discord.Interaction):
-    embed = discord.Embed(
-        title="Modules Configuration",
-        description=get_menu(),
-        colour=discord.Color.dark_embed()
-    )
-    await interaction.response.send_message(
-        embed=embed,
-        view=ModulesView(),
-        ephemeral=True
-    )
-
-@bot.tree.command(name="settings", description="Manage bot settings.")
-@app_commands.checks.has_permissions(administrator=True)
-async def settings(interaction: discord.Interaction):
-    """Command to open the settings menu."""
-    view = SettingsView()
-    await interaction.response.send_message("Select a setting to configure:", view=view, ephemeral=True)
-
-async def command_error(interaction: discord.Interaction, error):
-    if isinstance(error, app_commands.MissingPermissions):
-        await interaction.response.send_message(
-            "You do not have permission to use this command.", ephemeral=True
-        )
-    else:
-        await interaction.response.send_message(
-            "An error occurred while executing the command.", ephemeral=True
-        )
-
+    await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 # Run the bot with the token from config.json
 if config["token"]:
