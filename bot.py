@@ -14,7 +14,7 @@ CONFIG_FILE = "config.json"
 
 # Default configuration
 config = {
-    "token": None,
+    "token": "YOUR_BOT_TOKEN_HERE",
     "current_count": 1,
     "counting_channel_id": None,
     "correct_counter_role_id": None,
