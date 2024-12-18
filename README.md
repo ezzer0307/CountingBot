@@ -11,7 +11,7 @@ Ezzer's Counting Bot is a user-friendly bot for managing counting activities in 
 2. During installation, **check the box that says "Add Python to PATH"**.
 3. After installation, open a terminal or command prompt and type:
 `python --version`
-If Python is installed correctly, it will show the Python version.
+4. If Python is installed correctly, it will show the Python version.
 
 ---
 
