@@ -4,6 +4,23 @@ Ezzer's Counting Bot is a user-friendly bot for managing counting activities in 
 
 ---
 
+## Directories
+### [Getting Started](https://github.com/ezzer0307/CountingBot/?tab=readme-ov-file#getting-started)
+- [Install Python](https://github.com/ezzer0307/CountingBot/blob/main/README.md#1-install-python)
+- [Download The Bot Files](https://github.com/ezzer0307/CountingBot/blob/main/README.md#2-download-the-bot-files)
+- [Install Required Libaries](https://github.com/ezzer0307/CountingBot/blob/main/README.md#3-install-required-libraries)
+- [Create a Discord Bot](https://github.com/ezzer0307/CountingBot/blob/main/README.md#4-create-a-discord-bot)
+- [Run the Bot for the First Time](https://github.com/ezzer0307/CountingBot/blob/main/README.md#5-run-the-bot-for-the-first-time)
+- [Add Your Bot Token](https://github.com/ezzer0307/CountingBot/blob/main/README.md#6-add-your-bot-token)
+- [Restart The Bot](https://github.com/ezzer0307/CountingBot/blob/main/README.md#7-restart-the-bot)
+### [How to Use the Bot](https://github.com/ezzer0307/CountingBot/?tab=readme-ov-file#how-to-use-the-bot)
+- [Accessing the Dashboard](https://github.com/ezzer0307/CountingBot/?tab=readme-ov-file#accessing-the-dashboard)
+- [Troubleshooting](https://github.com/ezzer0307/CountingBot/?tab=readme-ov-file#troubleshooting)
+- [Source Code](https://github.com/ezzer0307/CountingBot/?tab=readme-ov-file#source-code)
+- [Links](https://github.com/ezzer0307/CountingBot/?tab=readme-ov-file#links)
+
+---
+
 ## Getting Started
 
 ### 1. Install Python
@@ -93,5 +110,5 @@ Enjoy using CountingBot! 🚀
 ---
 
 ### Links
-[Patreon](https://patreon.com/ezzer0307)
-[Discord Server](https://discord.gg/SSxwePn9)
+- [Patreon](https://patreon.com/ezzer0307)
+- [Discord Server](https://discord.gg/SSxwePn9)
