@@ -33,9 +33,10 @@ Ezzer's Counting Bot is a user-friendly bot for managing counting activities in 
 ---
 
 ### 2. Download the Bot Files
-1. Go to the [CountingBot GitHub Repository](https://github.com/ezzer0307/CountingBot).
-2. Click the green **"Code"** button and select **"Download ZIP"**.
-3. Extract the ZIP file to a folder on your computer.
+1. Go to the [bot.py](https://github.com/ezzer0307/CountingBot/blob/main/bot.py).
+2. Click the **Download raw file** button.
+3. Place it on your computer.
+4. **Warning**: Do not place it inside **Desktop** or **Downloads**. Put it inside a folder in **Documents**.
 
 ---
 
