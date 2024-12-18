@@ -67,10 +67,7 @@ Ezzer's Counting Bot is a user-friendly bot for managing counting activities in 
 ### 6. Add Your Bot Token
 1. Open the `config.json` file using a text editor (like Notepad).
 2. Paste your bot token in the `token` field:
-`json
-{
-    "token": "YOUR_BOT_TOKEN_HERE"
-}`
+`"token": "YOUR_BOT_TOKEN_HERE"`
 3. Save your file
 
 ---
