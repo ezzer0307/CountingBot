@@ -10,7 +10,7 @@
 Ezzer's Counting Bot is a user-friendly bot for managing counting activities in Discord servers. Follow this guide to set it up and host it on your PC easily.
 
 [![Setup](http://i.imgur.com/VvXYp5j.png)](https://github.com/ezzer0307/CountingBot/blob/main/SETUP%20GUIDE.md)
----
+
 ## Features
 - Easy to run (just make sure Python is installed, and run!)
 - Fast loading and proccessing
@@ -19,14 +19,16 @@ Ezzer's Counting Bot is a user-friendly bot for managing counting activities in 
 - Server-specific setup for the timeout role for users who counted correctly
 - Clean and beautiful menus, UIs
 - Supports local files
----
+
 ## Setup
+Please see the [Setup Page](https://github.com/ezzer0307/CountingBot/blob/main/SETUP%20GUIDE.md) to run this bot yourself!
 
-Please see the [Setup Page] to run this bot yourself!
-
----
 ## Questions/Suggestions/Bug Reports
 Please read the [Issues List](https://github.com/ezzer0307/CountingBot/issues) before suggesting a feature. If you have a question, need troubleshooting help, or want to brainstorm a new feature, please start a [Discussion](https://github.com/ezzer0307/CountingBot/discussions). If you'd like to suggest a feature or report a reproducible bug, please open an [Issue](https://github.com/ezzer0307/CountingBot/issues) on this repository. If you like this bot, be sure to add a star.
+
+## Editing
+This bot, developed in Python using libraries like `discord.py`, is publicly available to demonstrate the capabilities of Python-based Discord bots and encourage contributions from experienced developers. While the source code is accessible for educational purposes, it is not designed to be easily modifiable for beginners, and support will not be provided for custom edits or troubleshooting. Instead, users are encouraged to propose features or report issues via the repository. If you choose to modify the code, please adhere to the Apache 2.0 License, ensuring proper attribution and compliance with its terms.
+
 ## Source Code
 
 Ezzer's Counting Bot is open-source! Feel free to explore and contribute: [GitHub Repository](https://github.com/ezzer0307/CountingBot)
