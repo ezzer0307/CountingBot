@@ -14,4 +14,4 @@ Ezzer's Counting Bot is a user-friendly bot for managing counting activities in 
 ## Source Code
 
 Ezzer's Counting Bot is open-source! Feel free to explore and contribute: [GitHub Repository](https://github.com/ezzer0307/CountingBot)
-Enjoy using CountingBot! 🚀
+Enjoy using your Counting Bot! 🚀
