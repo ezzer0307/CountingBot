@@ -11,6 +11,22 @@ Ezzer's Counting Bot is a user-friendly bot for managing counting activities in 
 
 [![Setup](http://i.imgur.com/VvXYp5j.png)](https://github.com/ezzer0307/CountingBot/blob/main/SETUP%20GUIDE.md)
 ---
+## Features
+- Easy to run (just make sure Python is installed, and run!)
+- Fast loading and proccessing
+- No external keys needed (besides a Discord Bot token)
+- Smooth actions
+- Server-specific setup for the timeout role for users who counted correctly
+- Clean and beautiful menus, UIs
+- Supports local files
+---
+## Setup
+
+Please see the [Setup Page] to run this bot yourself!
+
+---
+## Questions/Suggestions/Bug Reports
+Please read the [Issues List](https://github.com/ezzer0307/CountingBot/issues) before suggesting a feature. If you have a question, need troubleshooting help, or want to brainstorm a new feature, please start a [Discussion](https://github.com/ezzer0307/CountingBot/discussions). If you'd like to suggest a feature or report a reproducible bug, please open an [Issue](https://github.com/ezzer0307/CountingBot/issues) on this repository. If you like this bot, be sure to add a star.
 ## Source Code
 
 Ezzer's Counting Bot is open-source! Feel free to explore and contribute: [GitHub Repository](https://github.com/ezzer0307/CountingBot)
