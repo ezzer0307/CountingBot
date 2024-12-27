@@ -19,6 +19,8 @@ Ezzer's Counting Bot is a user-friendly bot for managing counting activities in 
 - Server-specific setup for the timeout role for users who counted correctly
 - Clean and beautiful menus, UIs
 - Supports local files
+- Jokes
+- Highly Configurable
 
 ## Setup
 Please see the [Setup Page](https://github.com/ezzer0307/CountingBot/blob/main/SETUP%20GUIDE.md) to run this bot yourself!
