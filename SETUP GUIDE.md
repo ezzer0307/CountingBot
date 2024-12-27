@@ -46,19 +46,21 @@ Ezzer's Counting Bot is a user-friendly bot for managing counting activities in 
 ### 4. Create a Discord Bot
 1. Go to the [Discord Developer Portal](https://discord.com/developers/applications).
 2. Click **"New Application"** and give your bot a name.
-3. Navigate to the **Bot** tab and click **"Add Bot"**.
-4. Under the bot settings, copy the **token** (you'll need this in the next step).
+3. Navigate to the **OAuth2** tab and look for **"Client information"**.
+4. Under the bot settings, copy the **client ID** (you'll need this in the next step).
 
 ---
 
 ### 5. Run the Bot for the First Time
 1. Go back to the folder where you extracted the bot files.
 2. Run the python file
-3. A `config.json` file will be created in the same folder.
+3. If you're running on version v0.0.6 or higher you will see a prompt asking you if you're the first time setting up the bot. Type Y to continue.
+4. Paste your client ID
+5. After pasting, follow the link printed 
 
 ---
 
-### 6. Add Your Bot Token
+### If you're running on version v0.0.5 or below: Add Your Bot Token
 1. Open the `config.json` file using a text editor (like Notepad).
 2. Paste your bot token in the `token` field:
 `"token": "YOUR_BOT_TOKEN_HERE"`
@@ -66,7 +68,7 @@ Ezzer's Counting Bot is a user-friendly bot for managing counting activities in 
 
 ---
 
-### 7. Restart The Bot
+### 6. Restart The Bot
 1. Restart the bot by running the file again.
 2. The bot is now ready to use in your Discord server!
 ---
