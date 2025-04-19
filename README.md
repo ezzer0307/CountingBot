@@ -7,7 +7,7 @@
 [![CodeFactor](https://www.codefactor.io/repository/github/ezzer0307/CountingBot/badge)](https://www.codefactor.io/repository/github/ezzer0307/CountingBot)
 [![Support me on Patreon](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fshieldsio-patreon.vercel.app%2Fapi%3Fusername%3Dezzer0307%26type%3Dpatrons&style=flat)](https://patreon.com/ezzer0307)
 
-Ezzer's Counting Bot is a user-friendly bot for managing counting activities in Discord servers. Follow this guide to set it up and host it on your PC easily.
+Ezzer's Counting Bot is a discord user-friendly bot for managing counting activities in Discord servers. Follow this guide to set it up and host it on your PC easily.
 
 [![Setup](http://i.imgur.com/VvXYp5j.png)](https://github.com/ezzer0307/CountingBot/blob/main/SETUP%20GUIDE.md)
 
